@@ -1,0 +1,27 @@
+cmake_minimum_required (VERSION 3.10.0)
+
+project (top)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_OSX_DEPLOYMENT_TARGET 10.11)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
+set(CMAKE_XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT "dwarf-with-dsym")
+
+execute_process(
+	COMMAND xcrun --show-sdk-path
+	OUTPUT_VARIABLE SDK_HDRS_PATH OUTPUT_STRIP_TRAILING_WHITESPACE
+	)
+
+set(SRCS_PATH ${PROJECT_SOURCE_DIR}/src/)
+set(HDRS_PATH ${PROJECT_SOURCE_DIR}/include/)
+
+file(GLOB_RECURSE SRCS_CXX ${PROJECT_SOURCE_DIR}/src/*.cpp)
+file(GLOB_RECURSE SRCS_C ${PROJECT_SOURCE_DIR}/src/*.c)
+file(GLOB_RECURSE HDRS ${PROJECT_SOURCE_DIR}/include/*.h)
+
+include_directories(${SDK_HDRS_PATH})
+include_directories(${HDRS_PATH})
+
+add_library(${PROJECT_NAME} SHARED ${SRCS_CXX} ${SRCS_C} ${HDRS})
+
