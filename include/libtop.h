@@ -46,5 +46,7 @@ public:
     kern_return_t DeltaSampleCpuLoad(CPU_SAMPLE &sample, std::chrono::milliseconds msec);
     kern_return_t SampleCpuLoad(CPU_SAMPLE &sample);
     kern_return_t SampleMemoryUsage(MEMORY_SAMPLE &sample);
+	uint64_t PhysicalMemory();
+    uint64_t SwapUsed();
 };
 

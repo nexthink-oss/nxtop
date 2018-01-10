@@ -24,6 +24,7 @@
 
 #include <mach/mach_host.h>
 #include <mach/vm_statistics.h>
+#include <sys/sysctl.h>
 
 kern_return_t libTop::DeltaSampleCpuLoad(CPU_SAMPLE &sample, std::chrono::milliseconds msec)
 {
@@ -73,6 +74,7 @@ kern_return_t libTop::SampleCpuLoad(CPU_SAMPLE &sample)
 
 kern_return_t libTop::SampleMemoryUsage(MEMORY_SAMPLE &sample)
 {
+	static uint64_t physical_memory = PhysicalMemory();
     vm_statistics64_data_t vm_stat;
     mach_msg_type_number_t count = sizeof(vm_stat) / sizeof(natural_t);
 
@@ -90,10 +92,39 @@ kern_return_t libTop::SampleMemoryUsage(MEMORY_SAMPLE &sample)
     total_used_count = static_cast<uint64_t>(vm_stat.wire_count + vm_stat.internal_page_count - vm_stat.purgeable_count + vm_stat.compressor_page_count);
     sample.memoryUsed = total_used_count * pagesize;
 
-    sample.memoryPagedout = static_cast<uint64_t>(vm_stat.pageouts) * pagesize;
+    sample.memoryPagedout = SwapUsed();
 
     sample.faultCount = vm_stat.faults;
-	sample.memoryLimit = sample.memoryFree + sample.memoryUsed + sample.memoryPagedout;
+	sample.memoryLimit = physical_memory + sample.memoryPagedout;
 
 	return kr;
 }
+
+uint64_t libTop::PhysicalMemory()
+{
+	int mib[2];
+	int64_t physical_memory;
+	size_t length = sizeof(int64_t);
+
+	mib[0] = CTL_HW;
+	mib[1] = HW_MEMSIZE;
+
+	sysctl(mib, 2, &physical_memory, &length, NULL, 0);
+
+	return static_cast<uint64_t>(physical_memory);
+}
+
+uint64_t libTop::SwapUsed()
+{
+    int mib[2];
+    xsw_usage usage;
+    size_t length = sizeof(xsw_usage);
+
+    mib[0] = CTL_VM;
+    mib[1] = VM_SWAPUSAGE;
+
+    sysctl(mib, 2, &usage, &length, NULL, 0);
+
+    return usage.xsu_used;
+}
+
