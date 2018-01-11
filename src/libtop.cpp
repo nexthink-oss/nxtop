@@ -24,7 +24,6 @@
 
 #include <mach/mach_host.h>
 #include <mach/vm_statistics.h>
-#include <sys/sysctl.h>
 
 kern_return_t libTop::DeltaSampleCpuLoad(CPU_SAMPLE &sample, std::chrono::milliseconds msec)
 {
@@ -92,10 +91,12 @@ kern_return_t libTop::SampleMemoryUsage(MEMORY_SAMPLE &sample)
     total_used_count = static_cast<uint64_t>(vm_stat.wire_count + vm_stat.internal_page_count - vm_stat.purgeable_count + vm_stat.compressor_page_count);
     sample.memoryUsed = total_used_count * pagesize;
 
-    sample.memoryPagedout = SwapUsed();
-
     sample.faultCount = vm_stat.faults;
-	sample.memoryLimit = physical_memory + sample.memoryPagedout;
+
+	auto swap_status = SwapStat();
+    sample.memoryPagedout = swap_status.xsu_used;
+	sample.memoryCommitted = physical_memory + swap_status.xsu_used - sample.memoryFree;
+	sample.memoryLimit = physical_memory + swap_status.xsu_total;
 
 	return kr;
 }
@@ -114,7 +115,7 @@ uint64_t libTop::PhysicalMemory()
 	return static_cast<uint64_t>(physical_memory);
 }
 
-uint64_t libTop::SwapUsed()
+xsw_usage libTop::SwapStat()
 {
     int mib[2];
     xsw_usage usage;
@@ -125,6 +126,6 @@ uint64_t libTop::SwapUsed()
 
     sysctl(mib, 2, &usage, &length, NULL, 0);
 
-    return usage.xsu_used;
+    return usage;
 }
 
