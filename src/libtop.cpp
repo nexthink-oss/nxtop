@@ -73,11 +73,22 @@ kern_return_t libTop::SampleCpuLoad(CPU_SAMPLE &sample)
 
 kern_return_t libTop::SampleMemoryUsage(MEMORY_SAMPLE &sample)
 {
-	static uint64_t physical_memory = PhysicalMemory();
+    kern_return_t kr;
+    static int64_t physical_memory = 0;
+
+    if ( physical_memory == 0 )
+    {
+        kr = PhysicalMemory(physical_memory);
+        if (kr != KERN_SUCCESS)
+        {
+            return kr;
+        }
+    }
+
     vm_statistics64_data_t vm_stat;
     mach_msg_type_number_t count = sizeof(vm_stat) / sizeof(natural_t);
 
-    kern_return_t kr = host_statistics64(mach_host_self(), HOST_VM_INFO64, (host_info_t)&vm_stat, &count);
+    kr = host_statistics64(mach_host_self(), HOST_VM_INFO64, (host_info_t)&vm_stat, &count);
 	if (kr != KERN_SUCCESS)
 	{
 		return kr;
@@ -93,39 +104,39 @@ kern_return_t libTop::SampleMemoryUsage(MEMORY_SAMPLE &sample)
 
     sample.faultCount = vm_stat.faults;
 
-	auto swap_status = SwapStat();
+    xsw_usage swap_status;
+	kr  = SwapStat(swap_status);
+    if (kr != KERN_SUCCESS)
+    {
+        return kr;
+    }
+
     sample.memoryPagedout = swap_status.xsu_used;
-	sample.memoryCommitted = physical_memory + swap_status.xsu_used - sample.memoryFree;
-	sample.memoryLimit = physical_memory + swap_status.xsu_total;
+	sample.memoryCommitted = static_cast<uint64_t>(physical_memory) + swap_status.xsu_used - sample.memoryFree;
+	sample.memoryLimit = static_cast<uint64_t>(physical_memory) + swap_status.xsu_total;
 
 	return kr;
 }
 
-uint64_t libTop::PhysicalMemory()
+kern_return_t libTop::PhysicalMemory(int64_t &physical_memory)
 {
 	int mib[2];
-	int64_t physical_memory;
 	size_t length = sizeof(int64_t);
 
 	mib[0] = CTL_HW;
 	mib[1] = HW_MEMSIZE;
 
-	sysctl(mib, 2, &physical_memory, &length, NULL, 0);
-
-	return static_cast<uint64_t>(physical_memory);
+	return sysctl(mib, 2, &physical_memory, &length, NULL, 0);
 }
 
-xsw_usage libTop::SwapStat()
+ kern_return_t libTop::SwapStat(xsw_usage& usage)
 {
     int mib[2];
-    xsw_usage usage;
     size_t length = sizeof(xsw_usage);
 
     mib[0] = CTL_VM;
     mib[1] = VM_SWAPUSAGE;
 
-    sysctl(mib, 2, &usage, &length, NULL, 0);
-
-    return usage;
+    return sysctl(mib, 2, &usage, &length, NULL, 0);
 }
 
