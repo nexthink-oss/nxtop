@@ -99,7 +99,7 @@ kern_return_t libTop::SampleMemoryUsage(MEMORY_SAMPLE &sample)
 
     sample.memoryFree = static_cast<uint64_t>(vm_stat.free_count) * pagesize;
 
-    total_used_count = static_cast<uint64_t>(vm_stat.wire_count + vm_stat.internal_page_count - vm_stat.purgeable_count + vm_stat.compressor_page_count);
+    total_used_count = static_cast<uint64_t>(vm_stat.wire_count) + vm_stat.internal_page_count - vm_stat.purgeable_count + vm_stat.compressor_page_count;
     sample.memoryUsed = total_used_count * pagesize;
 
     sample.faultCount = vm_stat.faults;
