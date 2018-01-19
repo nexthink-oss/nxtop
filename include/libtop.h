@@ -47,7 +47,7 @@ public:
 
     typedef struct
     {
-        timeval totalTime;
+        struct timeval totalTime;
         unsigned int threadCount;
     } PROCESS_CPU_SAMPLE;
 
@@ -57,5 +57,6 @@ public:
 	kern_return_t PhysicalMemory(int64_t &);
     kern_return_t SwapStat(xsw_usage &);
     kern_return_t SampleProcessCpuLoad(int pid, PROCESS_CPU_SAMPLE &sample);
+    unsigned GetNumberOfCpu();
 };
 
