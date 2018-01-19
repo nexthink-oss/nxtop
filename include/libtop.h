@@ -45,10 +45,17 @@ public:
         uint64_t memoryCommitted;
     } MEMORY_SAMPLE;
 
+    typedef struct
+    {
+        timeval totalTime;
+        unsigned int threadCount;
+    } PROCESS_CPU_SAMPLE;
+
     kern_return_t DeltaSampleCpuLoad(CPU_SAMPLE &sample, std::chrono::milliseconds msec);
     kern_return_t SampleCpuLoad(CPU_SAMPLE &sample);
     kern_return_t SampleMemoryUsage(MEMORY_SAMPLE &sample);
 	kern_return_t PhysicalMemory(int64_t &);
     kern_return_t SwapStat(xsw_usage &);
+    kern_return_t SampleProcessCpuLoad(int pid, PROCESS_CPU_SAMPLE &sample);
 };
 

@@ -24,6 +24,22 @@
 
 #include <mach/mach_host.h>
 #include <mach/vm_statistics.h>
+#include <mach/bootstrap.h>
+#include <mach/host_priv.h>
+#include <mach/mach_error.h>
+#include <mach/mach_time.h>
+#include <mach/mach_host.h>
+#include <mach/mach_port.h>
+#include <mach/mach_vm.h>
+#include <mach/mach_types.h>
+#include <mach/message.h>
+#include <mach/processor_set.h>
+#include <mach/task.h>
+#include <mach/task_policy.h>
+#include <mach/thread_act.h>
+#include <mach/shared_region.h>
+#include <mach/vm_map.h>
+#include <mach/vm_page_size.h>
 
 kern_return_t libTop::DeltaSampleCpuLoad(CPU_SAMPLE &sample, std::chrono::milliseconds msec)
 {
@@ -140,3 +156,53 @@ kern_return_t libTop::PhysicalMemory(int64_t &physical_memory)
     return sysctl(mib, 2, &usage, &length, NULL, 0);
 }
 
+kern_return_t libTop::SampleProcessCpuLoad(int pid, PROCESS_CPU_SAMPLE &sample)
+{
+    kern_return_t kr;
+    thread_act_array_t threads;
+    mach_msg_type_number_t tcnt;
+    task_t task;
+
+    kr = task_for_pid(mach_host_self(), pid, &task);
+    if (kr != KERN_SUCCESS)
+    {
+        return kr;
+    }
+
+    kr = task_threads(task, &threads, &tcnt);
+    if (kr != KERN_SUCCESS)
+    {
+        return kr;
+    }
+
+    struct timeval tv = {0};
+    for (auto i = 0; i < tcnt; i++ )
+    {
+        thread_basic_info_data_t info;
+        mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
+
+        kr = thread_info(threads[i], THREAD_BASIC_INFO, (thread_info_t)&info, &count);
+        if (kr != KERN_SUCCESS)
+        {
+            continue;
+        }
+
+        if ((info.flags & (TH_FLAGS_IDLE | TH_FLAGS_GLOBAL_FORCED_IDLE)) == 0)
+        {
+            tv.tv_sec += info.user_time.seconds;
+            tv.tv_usec += info.user_time.microseconds;
+
+            tv.tv_sec += info.system_time.seconds;
+            tv.tv_usec += info.system_time.microseconds;
+        }
+
+        kr = mach_port_deallocate(mach_task_self(), threads[i]);
+    }
+
+    kr = mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)(uintptr_t)threads, tcnt * sizeof(*threads));
+
+    sample.totalTime = tv;
+    sample.threadCount = tcnt;
+
+    return kr;
+}
