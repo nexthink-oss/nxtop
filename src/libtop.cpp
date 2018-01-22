@@ -163,7 +163,7 @@ kern_return_t libTop::SampleProcessCpuLoad(int pid, PROCESS_CPU_SAMPLE &sample)
     mach_msg_type_number_t tcnt;
     task_t task;
 
-    kr = task_for_pid(mach_host_self(), pid, &task);
+    kr = TaskForPid(pid, task);
     if (kr != KERN_SUCCESS)
     {
         return kr;
@@ -233,4 +233,66 @@ unsigned libTop::GetNumberOfCpu()
     }
 
     return numCPU;
+}
+
+kern_return_t libTop::TaskForPid(int pid, task_t &task)
+{
+    task = MACH_PORT_NULL;
+    
+	kern_return_t kr;
+    static mach_port_t libtop_port = mach_host_self();
+
+	kr = task_for_pid(mach_task_self(), pid, &task);
+	if (kr == KERN_SUCCESS)
+	{
+		return kr;
+	}
+
+	// if task_for_pid was not successful try the alternative approach
+    processor_set_name_array_t psets;
+    processor_set_t pset;
+    task_array_t tasks;
+    mach_msg_type_number_t  i, j, pcnt, tcnt;
+    
+    kr = host_processor_sets(libtop_port, &psets, &pcnt);
+    if (kr != KERN_SUCCESS) {
+        return kr;
+    }
+    
+    for (i = 0; i < pcnt; i++)
+    {
+        kr = host_processor_set_priv(libtop_port, psets[i], &pset);
+        if ( kr != KERN_SUCCESS)
+        {
+            return kr;
+        }
+        
+        kr = processor_set_tasks(pset, &tasks, &tcnt);
+        if ( kr != KERN_SUCCESS)
+        {
+            return kr;
+        }
+
+        for (j = 0; j < tcnt; j++)
+        {
+            int _pid;
+            pid_for_task(tasks[j], &_pid);
+            if (_pid == pid)
+            {
+                task = tasks[j];
+            }
+        }
+        
+        kr = mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)(uintptr_t)tasks, tcnt * sizeof(*tasks));
+        kr = mach_port_deallocate(mach_task_self(), pset);
+        kr = mach_port_deallocate(mach_task_self(), psets[i]);
+        
+        if ( task != MACH_PORT_NULL )
+        {
+            break;
+        }
+    }
+    
+    kr = mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)(uintptr_t)psets, pcnt * sizeof(*psets));
+    return kr;
 }

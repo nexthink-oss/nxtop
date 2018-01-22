@@ -23,6 +23,7 @@
 #include <chrono>
 
 #include <mach/kern_return.h>
+#include <mach/mach_types.h>
 #include <sys/sysctl.h>
 
 class libTop
@@ -57,6 +58,7 @@ public:
 	kern_return_t PhysicalMemory(int64_t &);
     kern_return_t SwapStat(xsw_usage &);
     kern_return_t SampleProcessCpuLoad(int pid, PROCESS_CPU_SAMPLE &sample);
-    unsigned GetNumberOfCpu();
+    static unsigned GetNumberOfCpu();
+	kern_return_t TaskForPid(int pid, task_t &task);
 };
 
