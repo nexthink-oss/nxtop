@@ -178,7 +178,7 @@ unsigned libTop::GetNumberOfCpu()
     return numCPU;
 }
 
-kern_return_t libTop::SampleProcessCpuLoad(int pid, PROCESS_CPU_SAMPLE &sample)
+kern_return_t libTop::SampleProcessStatistics(int pid, PROCESS_STATISTICS_SAMPLE &sample)
 {
     struct proc_taskinfo prc;
     auto sec_ns = 1000000000;
@@ -186,11 +186,15 @@ kern_return_t libTop::SampleProcessCpuLoad(int pid, PROCESS_CPU_SAMPLE &sample)
 
     if ( sizeof(prc) == proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &prc, sizeof(prc)) )
     {
-        sample.threadCount = prc.pti_threadnum;
-        sample.totalTime.tv_sec = (prc.pti_total_system + prc.pti_total_user) / sec_ns;
-        sample.totalTime.tv_usec = (prc.pti_total_system + prc.pti_total_user) % usec_ns;
-        return KERN_SUCCESS;
+        sample.cpu.threadCount = prc.pti_threadnum;
+		auto total = prc.pti_total_system + prc.pti_total_user;
+        sample.cpu.totalTime.tv_sec = total / sec_ns;
+        sample.cpu.totalTime.tv_usec = (total % sec_ns) / usec_ns;
+
+		sample.memory = prc.pti_resident_size;
+
+		return KERN_SUCCESS;
     }
-    
-    return KERN_MEMORY_ERROR;
+
+	return KERN_RETURN_MAX;
 }

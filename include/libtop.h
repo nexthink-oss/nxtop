@@ -51,13 +51,19 @@ public:
         struct timeval totalTime;
         unsigned int threadCount;
     } PROCESS_CPU_SAMPLE;
+	
+	typedef struct
+	{
+		PROCESS_CPU_SAMPLE cpu;
+		uint64_t memory;
+	} PROCESS_STATISTICS_SAMPLE;
 
     kern_return_t DeltaSampleCpuLoad(CPU_SAMPLE &sample, std::chrono::milliseconds msec);
     kern_return_t SampleCpuLoad(CPU_SAMPLE &sample);
     kern_return_t SampleMemoryUsage(MEMORY_SAMPLE &sample);
 	kern_return_t PhysicalMemory(int64_t &);
     kern_return_t SwapStat(xsw_usage &);
-    kern_return_t SampleProcessCpuLoad(int pid, PROCESS_CPU_SAMPLE &sample);
+	kern_return_t SampleProcessStatistics(int pid, PROCESS_STATISTICS_SAMPLE &sample);
     static unsigned GetNumberOfCpu();
 };
 
