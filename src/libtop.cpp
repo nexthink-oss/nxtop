@@ -180,10 +180,11 @@ unsigned libTop::GetNumberOfCpu()
 
 kern_return_t libTop::SampleProcessStatistics(int pid, PROCESS_STATISTICS_SAMPLE &sample)
 {
+	kern_return_t kr = KERN_RETURN_MAX;
+
     struct proc_taskinfo prc;
     auto sec_ns = 1000000000;
 	auto usec_ns = 1000;
-
     if ( sizeof(prc) == proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &prc, sizeof(prc)) )
     {
         sample.cpu.threadCount = prc.pti_threadnum;
@@ -191,10 +192,13 @@ kern_return_t libTop::SampleProcessStatistics(int pid, PROCESS_STATISTICS_SAMPLE
         sample.cpu.totalTime.tv_sec = total / sec_ns;
         sample.cpu.totalTime.tv_usec = (total % sec_ns) / usec_ns;
 
-		sample.memory = prc.pti_resident_size;
-
-		return KERN_SUCCESS;
+		struct proc_regioninfo prc_region;
+		if ( sizeof(prc_region) == proc_pidinfo(pid, PROC_PIDREGIONINFO, 0, &prc_region, sizeof(prc_region)))
+		{
+			sample.memory = prc.pti_resident_size;
+			kr = KERN_SUCCESS;
+		}
     }
 
-	return KERN_RETURN_MAX;
+	return kr;
 }
