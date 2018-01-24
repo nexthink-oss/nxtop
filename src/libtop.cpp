@@ -24,22 +24,16 @@
 
 #include <mach/mach_host.h>
 #include <mach/vm_statistics.h>
-#include <mach/bootstrap.h>
 #include <mach/host_priv.h>
 #include <mach/mach_error.h>
-#include <mach/mach_time.h>
-#include <mach/mach_host.h>
 #include <mach/mach_port.h>
 #include <mach/mach_vm.h>
 #include <mach/mach_types.h>
-#include <mach/message.h>
 #include <mach/processor_set.h>
 #include <mach/task.h>
-#include <mach/task_policy.h>
 #include <mach/thread_act.h>
-#include <mach/shared_region.h>
-#include <mach/vm_map.h>
-#include <mach/vm_page_size.h>
+
+#include <libproc.h>
 
 kern_return_t libTop::DeltaSampleCpuLoad(CPU_SAMPLE &sample, std::chrono::milliseconds msec)
 {
@@ -156,57 +150,6 @@ kern_return_t libTop::PhysicalMemory(int64_t &physical_memory)
     return sysctl(mib, 2, &usage, &length, NULL, 0);
 }
 
-kern_return_t libTop::SampleProcessCpuLoad(int pid, PROCESS_CPU_SAMPLE &sample)
-{
-    kern_return_t kr;
-    thread_act_array_t threads;
-    mach_msg_type_number_t tcnt;
-    task_t task;
-
-    kr = TaskForPid(pid, task);
-    if (kr != KERN_SUCCESS)
-    {
-        return kr;
-    }
-
-    kr = task_threads(task, &threads, &tcnt);
-    if (kr != KERN_SUCCESS)
-    {
-        return kr;
-    }
-
-    struct timeval tv = {0};
-    for (auto i = 0; i < tcnt; i++ )
-    {
-        thread_basic_info_data_t info;
-        mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
-
-        kr = thread_info(threads[i], THREAD_BASIC_INFO, (thread_info_t)&info, &count);
-        if (kr != KERN_SUCCESS)
-        {
-            continue;
-        }
-
-        if ((info.flags & (TH_FLAGS_IDLE | TH_FLAGS_GLOBAL_FORCED_IDLE)) == 0)
-        {
-            tv.tv_sec += info.user_time.seconds;
-            tv.tv_usec += info.user_time.microseconds;
-
-            tv.tv_sec += info.system_time.seconds;
-            tv.tv_usec += info.system_time.microseconds;
-        }
-
-        kr = mach_port_deallocate(mach_task_self(), threads[i]);
-    }
-
-    kr = mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)(uintptr_t)threads, tcnt * sizeof(*threads));
-
-    sample.totalTime = tv;
-    sample.threadCount = tcnt;
-
-    return kr;
-}
-
 unsigned libTop::GetNumberOfCpu()
 {
     int mib[4];
@@ -235,64 +178,19 @@ unsigned libTop::GetNumberOfCpu()
     return numCPU;
 }
 
-kern_return_t libTop::TaskForPid(int pid, task_t &task)
+kern_return_t libTop::SampleProcessCpuLoad(int pid, PROCESS_CPU_SAMPLE &sample)
 {
-    task = MACH_PORT_NULL;
-    
-	kern_return_t kr;
-    static mach_port_t libtop_port = mach_host_self();
+    struct proc_taskinfo prc;
+    auto sec_ns = 1000000000;
+	auto usec_ns = 1000;
 
-	kr = task_for_pid(mach_task_self(), pid, &task);
-	if (kr == KERN_SUCCESS)
-	{
-		return kr;
-	}
-
-	// if task_for_pid was not successful try the alternative approach
-    processor_set_name_array_t psets;
-    processor_set_t pset;
-    task_array_t tasks;
-    mach_msg_type_number_t  i, j, pcnt, tcnt;
-    
-    kr = host_processor_sets(libtop_port, &psets, &pcnt);
-    if (kr != KERN_SUCCESS) {
-        return kr;
-    }
-    
-    for (i = 0; i < pcnt; i++)
+    if ( sizeof(prc) == proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &prc, sizeof(prc)) )
     {
-        kr = host_processor_set_priv(libtop_port, psets[i], &pset);
-        if ( kr != KERN_SUCCESS)
-        {
-            return kr;
-        }
-        
-        kr = processor_set_tasks(pset, &tasks, &tcnt);
-        if ( kr != KERN_SUCCESS)
-        {
-            return kr;
-        }
-
-        for (j = 0; j < tcnt; j++)
-        {
-            int _pid;
-            pid_for_task(tasks[j], &_pid);
-            if (_pid == pid)
-            {
-                task = tasks[j];
-            }
-        }
-        
-        kr = mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)(uintptr_t)tasks, tcnt * sizeof(*tasks));
-        kr = mach_port_deallocate(mach_task_self(), pset);
-        kr = mach_port_deallocate(mach_task_self(), psets[i]);
-        
-        if ( task != MACH_PORT_NULL )
-        {
-            break;
-        }
+        sample.threadCount = prc.pti_threadnum;
+        sample.totalTime.tv_sec = (prc.pti_total_system + prc.pti_total_user) / sec_ns;
+        sample.totalTime.tv_usec = (prc.pti_total_system + prc.pti_total_user) % usec_ns;
+        return KERN_SUCCESS;
     }
     
-    kr = mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)(uintptr_t)psets, pcnt * sizeof(*psets));
-    return kr;
+    return KERN_MEMORY_ERROR;
 }

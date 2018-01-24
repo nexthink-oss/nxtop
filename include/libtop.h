@@ -59,6 +59,5 @@ public:
     kern_return_t SwapStat(xsw_usage &);
     kern_return_t SampleProcessCpuLoad(int pid, PROCESS_CPU_SAMPLE &sample);
     static unsigned GetNumberOfCpu();
-	kern_return_t TaskForPid(int pid, task_t &task);
 };
 
