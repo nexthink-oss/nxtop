@@ -156,7 +156,30 @@ kern_return_t nxt::top::SampleMemoryUsage(MemorySample &sample)
 
 unsigned nxt::top::GetNumberOfCpu()
 {
-    return std::thread::hardware_concurrency();
+    int mib[2];
+    int numCPU = 0;
+    std::size_t len = sizeof(numCPU);
+
+    /* set the mib for hw.ncpu */
+    mib[0] = CTL_HW;
+    mib[1] = HW_AVAILCPU;  // alternatively, try HW_NCPU;
+
+    /* get the number of CPUs from the system */
+    auto err = sysctl(mib, 2, &numCPU, &len, NULL, 0);
+
+    if (numCPU < 1 || err != KERN_SUCCESS)
+    {
+        mib[1] = HW_NCPU;
+
+        err = sysctl(mib, 2, &numCPU, &len, NULL, 0);
+
+        if (numCPU < 1 || err != KERN_SUCCESS)
+        {
+            numCPU = 1;
+        }
+    }
+
+    return numCPU;
 }
 
 kern_return_t nxt::top::SampleProcessStatistics(int pid, ProcessStatisticsSample &sample)
