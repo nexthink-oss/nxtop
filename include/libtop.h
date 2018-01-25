@@ -31,9 +31,9 @@ namespace top
 
     struct CpuSample
     {
-        uint64_t totalSystemTime;
-        uint64_t totalUserTime;
-        uint64_t totalIdleTime;
+        std::chrono::milliseconds totalSystemTime;
+        std::chrono::milliseconds totalUserTime;
+        std::chrono::milliseconds totalIdleTime;
     };
 
     struct MemorySample

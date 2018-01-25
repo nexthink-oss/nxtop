@@ -21,6 +21,7 @@
 #include "libtop.h"
 
 #include <thread>
+#include <unistd.h>
 
 #include <mach/mach_host.h>
 #include <mach/vm_statistics.h>
@@ -36,6 +37,8 @@
 #include <sys/sysctl.h>
 
 #include <libproc.h>
+
+
 
 using namespace nxt::top;
 
@@ -89,6 +92,8 @@ kern_return_t nxt::top::DeltaSampleCpuLoad(CpuSample &sample, std::chrono::milli
 
 kern_return_t nxt::top::SampleCpuLoad(CpuSample &sample)
 {
+    using namespace std::chrono;
+
     kern_return_t kr;
     mach_msg_type_number_t count;
     host_cpu_load_info_data_t r_load;
@@ -100,9 +105,11 @@ kern_return_t nxt::top::SampleCpuLoad(CpuSample &sample)
 		return kr;
 	}
 
-    sample.totalSystemTime = static_cast<uint64_t>(r_load.cpu_ticks[CPU_STATE_SYSTEM]);
-    sample.totalUserTime = static_cast<uint64_t>(r_load.cpu_ticks[CPU_STATE_USER]) + r_load.cpu_ticks[CPU_STATE_NICE];
-    sample.totalIdleTime = static_cast<uint64_t>(r_load.cpu_ticks[CPU_STATE_IDLE]);
+    auto ticks_per_second = sysconf(_SC_CLK_TCK);
+    auto constexpr sec_milisec = milliseconds(1s).count();
+    sample.totalSystemTime = milliseconds(r_load.cpu_ticks[CPU_STATE_SYSTEM] * sec_milisec / ticks_per_second );
+    sample.totalUserTime = milliseconds(r_load.cpu_ticks[CPU_STATE_USER] * sec_milisec / ticks_per_second ) + milliseconds(r_load.cpu_ticks[CPU_STATE_NICE] * sec_milisec / ticks_per_second);
+    sample.totalIdleTime = milliseconds(r_load.cpu_ticks[CPU_STATE_IDLE] * sec_milisec / ticks_per_second );
 
 	return kr;
 }
