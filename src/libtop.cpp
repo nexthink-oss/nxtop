@@ -43,10 +43,10 @@ kern_return_t nxt::top::PhysicalMemory(int64_t &physical_memory)
 {
     int mib[2];
     size_t length = sizeof(int64_t);
-    
+
     mib[0] = CTL_HW;
     mib[1] = HW_MEMSIZE;
-    
+
     return sysctl(mib, 2, &physical_memory, &length, NULL, 0);
 }
 
@@ -54,10 +54,10 @@ kern_return_t nxt::top::SwapStat(xsw_usage& usage)
 {
     int mib[2];
     size_t length = sizeof(xsw_usage);
-    
+
     mib[0] = CTL_VM;
     mib[1] = VM_SWAPUSAGE;
-    
+
     return sysctl(mib, 2, &usage, &length, NULL, 0);
 }
 
@@ -162,20 +162,17 @@ unsigned nxt::top::GetNumberOfCpu()
 kern_return_t nxt::top::SampleProcessStatistics(int pid, ProcessStatisticsSample &sample)
 {
     using namespace std::chrono;
-    
+
 	kern_return_t kr = KERN_RETURN_MAX;
 
     struct proc_taskinfo prc;
-    constexpr auto sec_ns = duration_cast<nanoseconds>(1s).count();
-	constexpr auto usec_ns =  duration_cast<nanoseconds>(1us).count();
-    
+
     if ( sizeof(prc) == proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &prc, sizeof(prc)) )
     {
         sample.cpu.threadCount = prc.pti_threadnum;
 
         auto total = prc.pti_total_system + prc.pti_total_user;
-        sample.cpu.totalTime.tv_sec = total / sec_ns;
-        sample.cpu.totalTime.tv_usec = (total % sec_ns) / usec_ns;
+        sample.cpu.totalTime = nanoseconds(total);
 
         // prc.pti_resident_size is equal to the RealMemory column of Activity Monitor
         sample.memory = 0;

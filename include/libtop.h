@@ -22,24 +22,20 @@
 
 #include <chrono>
 
-#include <mach/kern_return.h>
-#include <mach/mach_types.h>
-#include <sys/sysctl.h>
-
 struct xsw_usage;
 
 namespace nxt
 {
 namespace top
 {
- 
+
     typedef struct
     {
         uint64_t totalSystemTime;
         uint64_t totalUserTime;
         uint64_t totalIdleTime;
     } CpuSample;
-    
+
     typedef struct
     {
         uint64_t memoryFree;
@@ -49,19 +45,19 @@ namespace top
         uint64_t memoryLimit;
         uint64_t memoryCommitted;
     } MemorySample;
-    
+
     typedef struct
     {
-        struct timeval totalTime;
+        std::chrono::nanoseconds totalTime;
         uint32_t threadCount;
     } ProcessCpuSample;
-    
+
     typedef struct
     {
         ProcessCpuSample cpu;
         uint64_t memory;
     } ProcessStatisticsSample;
-    
+
     int DeltaSampleCpuLoad(CpuSample &sample, std::chrono::milliseconds msec);
     int SampleCpuLoad(CpuSample &sample);
     int SampleMemoryUsage(MemorySample &sample);
