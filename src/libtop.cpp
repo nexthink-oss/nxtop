@@ -29,16 +29,42 @@
 #include <mach/mach_port.h>
 #include <mach/mach_vm.h>
 #include <mach/mach_types.h>
+#include <mach/kern_return.h>
 #include <mach/processor_set.h>
 #include <mach/task.h>
 #include <mach/thread_act.h>
+#include <sys/sysctl.h>
 
 #include <libproc.h>
 
-kern_return_t libTop::DeltaSampleCpuLoad(CPU_SAMPLE &sample, std::chrono::milliseconds msec)
+using namespace nxt::top;
+
+kern_return_t nxt::top::PhysicalMemory(int64_t &physical_memory)
+{
+    int mib[2];
+    size_t length = sizeof(int64_t);
+    
+    mib[0] = CTL_HW;
+    mib[1] = HW_MEMSIZE;
+    
+    return sysctl(mib, 2, &physical_memory, &length, NULL, 0);
+}
+
+kern_return_t nxt::top::SwapStat(xsw_usage& usage)
+{
+    int mib[2];
+    size_t length = sizeof(xsw_usage);
+    
+    mib[0] = CTL_VM;
+    mib[1] = VM_SWAPUSAGE;
+    
+    return sysctl(mib, 2, &usage, &length, NULL, 0);
+}
+
+kern_return_t nxt::top::DeltaSampleCpuLoad(CpuSample &sample, std::chrono::milliseconds msec)
 {
 	kern_return_t kr;
-	CPU_SAMPLE sample_one, sample_two;
+	CpuSample sample_one, sample_two;
 
 	kr = SampleCpuLoad(sample_one);
 	if (kr != KERN_SUCCESS)
@@ -61,7 +87,7 @@ kern_return_t libTop::DeltaSampleCpuLoad(CPU_SAMPLE &sample, std::chrono::millis
 	return kr;
 }
 
-kern_return_t libTop::SampleCpuLoad(CPU_SAMPLE &sample)
+kern_return_t nxt::top::SampleCpuLoad(CpuSample &sample)
 {
     kern_return_t kr;
     mach_msg_type_number_t count;
@@ -81,7 +107,7 @@ kern_return_t libTop::SampleCpuLoad(CPU_SAMPLE &sample)
 	return kr;
 }
 
-kern_return_t libTop::SampleMemoryUsage(MEMORY_SAMPLE &sample)
+kern_return_t nxt::top::SampleMemoryUsage(MemorySample &sample)
 {
     kern_return_t kr;
     static int64_t physical_memory = 0;
@@ -115,7 +141,7 @@ kern_return_t libTop::SampleMemoryUsage(MEMORY_SAMPLE &sample)
     sample.faultCount = vm_stat.faults;
 
     xsw_usage swap_status;
-	kr  = SwapStat(swap_status);
+    kr  = SwapStat(swap_status);
     if (kr != KERN_SUCCESS)
     {
         return kr;
@@ -128,63 +154,21 @@ kern_return_t libTop::SampleMemoryUsage(MEMORY_SAMPLE &sample)
 	return kr;
 }
 
-kern_return_t libTop::PhysicalMemory(int64_t &physical_memory)
+unsigned nxt::top::GetNumberOfCpu()
 {
-	int mib[2];
-	size_t length = sizeof(int64_t);
-
-	mib[0] = CTL_HW;
-	mib[1] = HW_MEMSIZE;
-
-	return sysctl(mib, 2, &physical_memory, &length, NULL, 0);
+    return std::thread::hardware_concurrency();
 }
 
- kern_return_t libTop::SwapStat(xsw_usage& usage)
+kern_return_t nxt::top::SampleProcessStatistics(int pid, ProcessStatisticsSample &sample)
 {
-    int mib[2];
-    size_t length = sizeof(xsw_usage);
-
-    mib[0] = CTL_VM;
-    mib[1] = VM_SWAPUSAGE;
-
-    return sysctl(mib, 2, &usage, &length, NULL, 0);
-}
-
-unsigned libTop::GetNumberOfCpu()
-{
-    int mib[4];
-    int numCPU = 0;
-    std::size_t len = sizeof(numCPU);
-
-    /* set the mib for hw.ncpu */
-    mib[0] = CTL_HW;
-    mib[1] = HW_AVAILCPU;  // alternatively, try HW_NCPU;
-
-    /* get the number of CPUs from the system */
-    sysctl(mib, 2, &numCPU, &len, NULL, 0);
-
-    if (numCPU < 1)
-    {
-        mib[1] = HW_NCPU;
-
-        sysctl(mib, 2, &numCPU, &len, NULL, 0);
-
-        if (numCPU < 1)
-        {
-            numCPU = 1;
-        }
-    }
-
-    return numCPU;
-}
-
-kern_return_t libTop::SampleProcessStatistics(int pid, PROCESS_STATISTICS_SAMPLE &sample)
-{
+    using namespace std::chrono;
+    
 	kern_return_t kr = KERN_RETURN_MAX;
 
     struct proc_taskinfo prc;
-    auto sec_ns = 1000000000;
-	auto usec_ns = 1000;
+    constexpr auto sec_ns = duration_cast<nanoseconds>(1s).count();
+	constexpr auto usec_ns =  duration_cast<nanoseconds>(1us).count();
+    
     if ( sizeof(prc) == proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &prc, sizeof(prc)) )
     {
         sample.cpu.threadCount = prc.pti_threadnum;
