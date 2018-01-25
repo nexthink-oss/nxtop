@@ -32,7 +32,7 @@ namespace nxt
 {
 namespace top
 {
-
+ 
     typedef struct
     {
         uint64_t totalSystemTime;
@@ -53,7 +53,7 @@ namespace top
     typedef struct
     {
         struct timeval totalTime;
-        unsigned int threadCount;
+        uint32_t threadCount;
     } ProcessCpuSample;
     
     typedef struct
