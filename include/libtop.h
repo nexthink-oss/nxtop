@@ -22,20 +22,21 @@
 
 #include <chrono>
 
-#include <mach/kern_return.h>
-#include <sys/sysctl.h>
+struct xsw_usage;
 
-class libTop
+namespace nxt
 {
-public:
-    typedef struct
-    {
-        uint64_t totalSystemTime;
-        uint64_t totalUserTime;
-        uint64_t totalIdleTime;
-    } CPU_SAMPLE;
+namespace top
+{
 
-    typedef struct
+    struct CpuSample
+    {
+        std::chrono::milliseconds totalSystemTime;
+        std::chrono::milliseconds totalUserTime;
+        std::chrono::milliseconds totalIdleTime;
+    };
+
+    struct MemorySample
     {
         uint64_t memoryFree;
         uint64_t memoryUsed;
@@ -43,12 +44,30 @@ public:
         uint64_t faultCount;
         uint64_t memoryLimit;
         uint64_t memoryCommitted;
-    } MEMORY_SAMPLE;
+    };
 
-    kern_return_t DeltaSampleCpuLoad(CPU_SAMPLE &sample, std::chrono::milliseconds msec);
-    kern_return_t SampleCpuLoad(CPU_SAMPLE &sample);
-    kern_return_t SampleMemoryUsage(MEMORY_SAMPLE &sample);
-	kern_return_t PhysicalMemory(int64_t &);
-    kern_return_t SwapStat(xsw_usage &);
-};
+    struct ProcessCpuSample
+    {
+        std::chrono::nanoseconds totalTime;
+        uint32_t threadCount;
+    };
+
+    struct ProcessStatisticsSample
+    {
+        ProcessCpuSample cpu;
+        uint64_t memory;
+    };
+
+    int DeltaSampleCpuLoad(CpuSample &sample, std::chrono::milliseconds msec);
+    int SampleCpuLoad(CpuSample &sample);
+    int SampleMemoryUsage(MemorySample &sample);
+    int PhysicalMemory(int64_t &);
+    int SwapStat(xsw_usage &);
+    int SampleProcessStatistics(int pid, ProcessStatisticsSample &sample);
+    unsigned GetNumberOfCpu();
+}
+}
+
+
+
 
