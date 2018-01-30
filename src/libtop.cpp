@@ -19,7 +19,6 @@
 // December 2017
 
 #include "libtop.h"
-
 #include <thread>
 #include <unistd.h>
 
@@ -37,7 +36,6 @@
 #include <sys/sysctl.h>
 
 #include <libproc.h>
-
 
 
 using namespace nxt::top;
@@ -207,7 +205,13 @@ kern_return_t nxt::top::SampleProcessStatistics(int pid, ProcessStatisticsSample
         // prc.pti_resident_size is equal to the RealMemory column of Activity Monitor
         sample.memory = 0;
 
-        kr = KERN_SUCCESS;
+        // The development and debug version of XNU kernel does return this value
+        struct proc_regioninfo prc_rg;
+        if (sizeof(prc_rg) == proc_pidinfo(pid, PROC_PIDREGIONINFO, 0, &prc_rg, sizeof(prc_rg)))
+        {
+            sample.memory = prc_rg.pri_pages_dirtied * PAGE_SIZE;
+            kr = KERN_SUCCESS;
+        }
     }
 
 	return kr;
