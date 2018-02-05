@@ -37,7 +37,6 @@
 
 #include <libproc.h>
 
-
 using namespace nxt::top;
 
 kern_return_t nxt::top::PhysicalMemory(int64_t &physical_memory)
@@ -204,14 +203,22 @@ kern_return_t nxt::top::SampleProcessStatistics(int pid, ProcessStatisticsSample
 
         // prc.pti_resident_size is equal to the RealMemory column of Activity Monitor
         sample.memory = 0;
+		kr = KERN_SUCCESS;
 
-        // The development and debug version of XNU kernel does return this value
-        struct proc_regioninfo prc_rg;
-        if (sizeof(prc_rg) == proc_pidinfo(pid, PROC_PIDREGIONINFO, 0, &prc_rg, sizeof(prc_rg)))
-        {
-            sample.memory = prc_rg.pri_pages_dirtied * PAGE_SIZE;
-            kr = KERN_SUCCESS;
-        }
+		task_t task;
+		task_vm_info_data_t task_vm_info;
+		mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+
+		auto kr_mem = task_for_pid(mach_task_self(), pid, &task);
+		if ( kr_mem == KERN_SUCCESS )
+		{
+			kr_mem = task_info(task, TASK_VM_INFO, (task_info_t) &task_vm_info, &count);
+			if ( kr_mem == KERN_SUCCESS )
+			{
+				sample.memory = task_vm_info.internal;
+				kr_mem = mach_port_deallocate(mach_task_self(), task);
+			}
+		}
     }
 
 	return kr;
