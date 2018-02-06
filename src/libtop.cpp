@@ -193,7 +193,6 @@ kern_return_t nxt::top::SampleProcessStatistics(int pid, ProcessStatisticsSample
 	kern_return_t kr = KERN_RETURN_MAX;
 
     struct proc_taskinfo prc;
-
     if ( sizeof(prc) == proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &prc, sizeof(prc)) )
     {
         sample.cpu.threadCount = prc.pti_threadnum;
@@ -201,24 +200,13 @@ kern_return_t nxt::top::SampleProcessStatistics(int pid, ProcessStatisticsSample
         auto total = prc.pti_total_system + prc.pti_total_user;
         sample.cpu.totalTime = nanoseconds(total);
 
-        // prc.pti_resident_size is equal to the RealMemory column of Activity Monitor
-        sample.memory = 0;
-		kr = KERN_SUCCESS;
-
-		task_t task;
-		task_vm_info_data_t task_vm_info;
-		mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
-
-		auto kr_mem = task_for_pid(mach_task_self(), pid, &task);
-		if ( kr_mem == KERN_SUCCESS )
-		{
-			kr_mem = task_info(task, TASK_VM_INFO, (task_info_t) &task_vm_info, &count);
-			if ( kr_mem == KERN_SUCCESS )
-			{
-				sample.memory = task_vm_info.internal;
-				kr_mem = mach_port_deallocate(mach_task_self(), task);
-			}
-		}
+        // The return value for the kernel_task (i.e. PID = 0) has a large offset from the Memory value reported in Activitiy monitor
+        rusage_info_current rui;
+        kr = proc_pid_rusage(pid, RUSAGE_INFO_CURRENT, reinterpret_cast<rusage_info_t *>(&rui));
+        if ( kr == KERN_SUCCESS )
+        {
+            sample.memory = rui.ri_phys_footprint;
+        }
     }
 
 	return kr;
