@@ -19,7 +19,6 @@
 // December 2017
 
 #include "libtop.h"
-
 #include <thread>
 #include <unistd.h>
 
@@ -37,8 +36,6 @@
 #include <sys/sysctl.h>
 
 #include <libproc.h>
-
-
 
 using namespace nxt::top;
 
@@ -137,7 +134,7 @@ kern_return_t nxt::top::SampleMemoryUsage(MemorySample &sample)
 		return kr;
 	}
 
-    vm_size_t pagesize = vm_kernel_page_size;
+    vm_size_t pagesize = vm_page_size;
     uint64_t total_used_count;
 
     total_used_count = static_cast<uint64_t>(vm_stat.wire_count) + vm_stat.internal_page_count - vm_stat.purgeable_count + vm_stat.compressor_page_count;
@@ -196,7 +193,6 @@ kern_return_t nxt::top::SampleProcessStatistics(int pid, ProcessStatisticsSample
 	kern_return_t kr = KERN_RETURN_MAX;
 
     struct proc_taskinfo prc;
-
     if ( sizeof(prc) == proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &prc, sizeof(prc)) )
     {
         sample.cpu.threadCount = prc.pti_threadnum;
@@ -204,10 +200,30 @@ kern_return_t nxt::top::SampleProcessStatistics(int pid, ProcessStatisticsSample
         auto total = prc.pti_total_system + prc.pti_total_user;
         sample.cpu.totalTime = nanoseconds(total);
 
-        // prc.pti_resident_size is equal to the RealMemory column of Activity Monitor
-        sample.memory = 0;
+        // Report the kernel_task memory as it is done in XNU kernel (Refer to osfmk/kern/task.c)
+        if ( pid == 0 )
+        {
+            vm_statistics64_data_t vm_stat;
+            mach_msg_type_number_t count = sizeof(vm_stat) / sizeof(natural_t);
 
-        kr = KERN_SUCCESS;
+            kr = host_statistics64(mach_host_self(), HOST_VM_INFO64, (host_info_t)&vm_stat, &count);
+            if (kr == KERN_SUCCESS )
+            {
+                sample.memory = prc.pti_resident_size - static_cast<uint64_t>(vm_stat.compressor_page_count) * vm_page_size;
+            }
+        }
+        else
+        {
+            // Refer to osfmk/kern/task.c in XNU kernel source code for the definition of phys_footprint.
+            // The value reported will be equal or higher than the internal memory reported by the Activity monitor.
+            // Nevertheless the value reported should have the same magnitude and be close to that of the Memory column displayed in Activity monitor.
+            rusage_info_current rui;
+            kr = proc_pid_rusage(pid, RUSAGE_INFO_CURRENT, reinterpret_cast<rusage_info_t *>(&rui));
+            if ( kr == KERN_SUCCESS )
+            {
+                sample.memory = rui.ri_phys_footprint;
+            }
+        }
     }
 
 	return kr;
