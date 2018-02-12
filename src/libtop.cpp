@@ -23,16 +23,6 @@
 #include <unistd.h>
 
 #include <mach/mach_host.h>
-#include <mach/vm_statistics.h>
-#include <mach/host_priv.h>
-#include <mach/mach_error.h>
-#include <mach/mach_port.h>
-#include <mach/mach_vm.h>
-#include <mach/mach_types.h>
-#include <mach/kern_return.h>
-#include <mach/processor_set.h>
-#include <mach/task.h>
-#include <mach/thread_act.h>
 #include <sys/sysctl.h>
 
 #include <libproc.h>
