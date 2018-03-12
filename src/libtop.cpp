@@ -207,8 +207,8 @@ kern_return_t nxt::top::SampleProcessStatistics(int pid, ProcessStatisticsSample
             // Refer to osfmk/kern/task.c in XNU kernel source code for the definition of phys_footprint.
             // The value reported will be equal or higher than the internal memory reported by the Activity monitor.
             // Nevertheless the value reported should have the same magnitude and be close to that of the Memory column displayed in Activity monitor.
-            rusage_info_current rui;
-            kr = proc_pid_rusage(pid, RUSAGE_INFO_CURRENT, reinterpret_cast<rusage_info_t *>(&rui));
+            rusage_info_v0 rui;
+            kr = proc_pid_rusage(pid, RUSAGE_INFO_V0, reinterpret_cast<rusage_info_t *>(&rui));
             if ( kr == KERN_SUCCESS )
             {
                 sample.memory = rui.ri_phys_footprint;
