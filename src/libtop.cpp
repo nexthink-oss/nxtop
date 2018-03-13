@@ -181,6 +181,16 @@ kern_return_t nxt::top::SampleProcessStatistics(int pid, ProcessStatisticsSample
     using namespace std::chrono;
 
 	kern_return_t kr = KERN_RETURN_MAX;
+    static int64_t phyMem = 0;
+
+    if (phyMem == 0)
+    {
+        kr = PhysicalMemory(phyMem);
+        if (kr != KERN_SUCCESS)
+        {
+            return kr;
+        }
+    }
 
     struct proc_taskinfo prc;
     if ( sizeof(prc) == proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &prc, sizeof(prc)) )
@@ -211,7 +221,7 @@ kern_return_t nxt::top::SampleProcessStatistics(int pid, ProcessStatisticsSample
             kr = proc_pid_rusage(pid, RUSAGE_INFO_V0, reinterpret_cast<rusage_info_t *>(&rui));
             if ( kr == KERN_SUCCESS )
             {
-                sample.memory = rui.ri_phys_footprint;
+                sample.memory = (rui.ri_phys_footprint > phyMem) ? phyMem : rui.ri_phys_footprint;
             }
         }
     }
